@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "roguelike"
+version = "0.1.0"
+description = "Roguelike Tutorial"
+authors = ["Luiz F. A. de Prá <rawarkanis@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+tcod = "^11.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^4.6"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
