@@ -1,7 +1,8 @@
 import tcod
 
-from entity import Entity
+from entity import Entity, get_blocking_entities_at_location
 from fov_functions import initialize_fov, recompute_fov
+from game_states import GameState
 from input_handlers import handle_keys
 from map_objects.game_map import GameMap
 from render_functions import clear_all, render_all
@@ -16,6 +17,8 @@ ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
 
+MAX_MONSTERS_PER_ROOM = 3
+
 FOV_ALGORITHM = 0
 FOV_LIGHT_WALLS = True
 FOV_RADIUS = 10
@@ -29,9 +32,8 @@ COLORS = {
 
 
 def main():
-    player = Entity(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, '@', tcod.white)
-    npc = Entity(SCREEN_WIDTH // 2 - 5, SCREEN_HEIGHT // 2, '@', tcod.yellow)
-    entities = [npc, player]
+    player = Entity(0, 0, '@', tcod.white, 'Player', blocks=True)
+    entities = [player]
 
     tcod.console_set_custom_font(
         "assets/fonts/arial10x10.png",
@@ -54,7 +56,9 @@ def main():
         ROOM_MAX_SIZE,
         MAP_WIDTH,
         MAP_HEIGHT,
-        player
+        player,
+        entities,
+        MAX_MONSTERS_PER_ROOM
     )
 
     fov_recompute = True
@@ -63,6 +67,8 @@ def main():
 
     key = tcod.Key()
     mouse = tcod.Mouse()
+
+    game_state = GameState.PLAYER_TURN
 
     while not tcod.console_is_window_closed():
         tcod.sys_check_for_event(tcod.EVENT_KEY_PRESS, key, mouse)
@@ -100,17 +106,34 @@ def main():
         exit = action.get("exit")
         fullscreen = action.get("fullscreen")
 
-        if move:
+        if move and game_state == GameState.PLAYER_TURN:
+            print(f'He moves: {move}')
             dx, dy = move
-            if not game_map.is_blocked(player.x + dx, player.y + dy):
-                player.move(dx, dy)
-                fov_recompute = True
+            destination_x = player.x + dx
+            destination_y = player.y + dy
+
+            if not game_map.is_blocked(destination_x, destination_y):
+                target = get_blocking_entities_at_location(entities, destination_x, destination_y)
+                if target:
+                    print(f'You kick the {target.name} in the shins, much to its annoyance!')
+                else:
+                    player.move(dx, dy)
+                    fov_recompute = True
+
+                game_state = GameState.ENEMY_TURN
 
         if exit:
             return True
 
         if fullscreen:
             tcod.console_set_fullscreen(not tcod.console_is_fullscreen())
+
+        if game_state == GameState.ENEMY_TURN:
+            for entity in entities:
+                if entity != player:
+                    print(f'The {entity.name} ponders the meaning of its existence.')
+
+            game_state = GameState.PLAYER_TURN
 
 
 if __name__ == '__main__':
