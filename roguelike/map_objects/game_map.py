@@ -1,9 +1,10 @@
-import tcod
 from random import randint
 
-from entity import Entity
-from map_objects.rectangle import Rect
-from map_objects.tile import Tile
+import tcod
+
+from ..entity import Entity
+from .rectangle import Rect
+from .tile import Tile
 
 
 class GameMap:
@@ -13,22 +14,11 @@ class GameMap:
         self.tiles = self.initialize_tiles()
 
     def initialize_tiles(self):
-        tiles = [
-            [Tile(True) for y in range(self.height)]
-            for x in range(self.width)
-        ]
+        tiles = [[Tile(True) for y in range(self.height)] for x in range(self.width)]
         return tiles
 
     def make_map(
-        self,
-        max_rooms,
-        room_min_size,
-        room_max_size,
-        map_width,
-        map_height,
-        player,
-        entities,
-        max_monsters_per_room
+        self, max_rooms, room_min_size, room_max_size, map_width, map_height, player, entities, max_monsters_per_room
     ):
         rooms = []
         num_rooms = 0
@@ -90,9 +80,9 @@ class GameMap:
 
             if not any([e for e in entities if e.x == x and e.y == y]):
                 if randint(0, 100) < 80:
-                    monster = Entity(x, y, 'o', tcod.desaturated_green, 'Orc', blocks=True)
+                    monster = Entity(x, y, "o", tcod.desaturated_green, "Orc", blocks=True)
                 else:
-                    monster = Entity(x, y, 'T', tcod.darker_green, 'Troll', blocks=True)
+                    monster = Entity(x, y, "T", tcod.darker_green, "Troll", blocks=True)
 
                 entities.append(monster)
 
