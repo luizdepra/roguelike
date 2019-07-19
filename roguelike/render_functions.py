@@ -2,6 +2,9 @@ from enum import Enum
 
 import tcod
 
+from .game_states import GameState
+from .menus import inventory_menu
+
 
 class RenderOrder(Enum):
     CORPSE = 1
@@ -54,6 +57,7 @@ def render_all(
     panel_y,
     mouse,
     colors,
+    game_state,
 ):
     if fov_recompute:
         for y in range(game_map.height):
@@ -92,6 +96,14 @@ def render_all(
     tcod.console_print_ex(panel, 1, 0, tcod.BKGND_NONE, tcod.LEFT, get_names_under_mouse(mouse, entities, fov_map))
 
     tcod.console_blit(panel, 0, 0, screen_width, panel_height, 0, 0, panel_y)
+
+    if game_state in (GameState.SHOW_INVENTORY, GameState.DROP_INVENTORY):
+        if game_state == GameState.SHOW_INVENTORY:
+            title = "Press the key next to an item to use it, or Esc to cancel.\n"
+        else:
+            title = "Press the key next to an item to drop it, or Esc to cancel.\n"
+
+        inventory_menu(con, title, player.inventory, 50, screen_width, screen_height)
 
 
 def clear_all(con, entities):
