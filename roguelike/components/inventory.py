@@ -32,14 +32,17 @@ class Inventory:
         if item_component.use_function is None:
             results.append({"message": Message(f"The {item_component.name} cannot be used", tcod.yellow)})
         else:
-            kwargs = {**item_component.function_kwargs, **kwargs}
-            item_use_results = item_component.use_function(self.owner, **kwargs)
+            if item_component.targeting and not (kwargs.get("target_x") or kwargs.get("target_y")):
+                results.append({"targeting": item_entity})
+            else:
+                kwargs = {**item_component.function_kwargs, **kwargs}
+                item_use_results = item_component.use_function(self.owner, **kwargs)
 
-            for result in item_use_results:
-                if result.get("consumed"):
-                    self.remove_item(item_entity)
+                for result in item_use_results:
+                    if result.get("consumed"):
+                        self.remove_item(item_entity)
 
-            results.extend(item_use_results)
+                results.extend(item_use_results)
 
         return results
 
