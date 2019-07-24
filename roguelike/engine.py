@@ -1,95 +1,26 @@
 import tcod
 
-from .components.fighter import Fighter
-from .components.inventory import Inventory
+from .configs import get_configs
 from .death_functions import kill_monster, kill_player
-from .entity import Entity, get_blocking_entities_at_location
+from .entity import get_blocking_entities_at_location
 from .fov_functions import initialize_fov, recompute_fov
-from .game_messages import Message, MessageLog
+from .game_messages import Message
 from .game_states import GameState
-from .input_handlers import handle_keys, handle_mouse
-from .map_objects.game_map import GameMap
-from .render_functions import RenderOrder, clear_all, render_all
-
-SCREEN_WIDTH = 80
-SCREEN_HEIGHT = 50
-
-BAR_WIDTH = 20
-PANEL_HEIGHT = 7
-PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
-
-MESSAGE_X = BAR_WIDTH + 2
-MESSAGE_WIDTH = SCREEN_WIDTH - BAR_WIDTH - 2
-MESSAGE_HEIGHT = PANEL_HEIGHT - 1
-
-MAP_WIDTH = 80
-MAP_HEIGHT = 43
-
-ROOM_MAX_SIZE = 10
-ROOM_MIN_SIZE = 6
-MAX_ROOMS = 30
-
-MAX_MONSTERS_PER_ROOM = 3
-MAX_ITEMS_PER_ROOM = 2
-
-FOV_ALGORITHM = 0
-FOV_LIGHT_WALLS = True
-FOV_RADIUS = 10
-
-COLORS = {
-    "dark_wall": tcod.Color(0, 0, 100),
-    "dark_ground": tcod.Color(50, 50, 150),
-    "light_wall": tcod.Color(130, 110, 50),
-    "light_ground": tcod.Color(200, 180, 50),
-}
+from .input_handlers import handle_keys, handle_main_menu, handle_mouse
+from .loader_functions.data_loaders import load_game, save_game
+from .loader_functions.initialize_new_game import get_game_variables
+from .menus import main_menu, message_box
+from .render_functions import clear_all, render_all
 
 
-def main():
-    fighter_component = Fighter(hp=30, defense=2, power=5)
-    inventory_component = Inventory(26)
-    player = Entity(
-        0,
-        0,
-        "@",
-        tcod.white,
-        "Player",
-        blocks=True,
-        render_order=RenderOrder.ACTOR,
-        fighter=fighter_component,
-        inventory=inventory_component,
-    )
-    entities = [player]
-
-    tcod.console_set_custom_font("assets/fonts/arial10x10.png", tcod.FONT_TYPE_GREYSCALE | tcod.FONT_LAYOUT_TCOD)
-
-    tcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, "Roguelike Tutorial", False)
-
-    con = tcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
-    panel = tcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
-
-    game_map = GameMap(MAP_WIDTH, MAP_HEIGHT)
-    game_map.make_map(
-        MAX_ROOMS,
-        ROOM_MIN_SIZE,
-        ROOM_MAX_SIZE,
-        MAP_WIDTH,
-        MAP_HEIGHT,
-        player,
-        entities,
-        MAX_MONSTERS_PER_ROOM,
-        MAX_ITEMS_PER_ROOM,
-    )
-
+def play_game(player, entities, game_map, message_log, game_state, con, panel, configs):
     fov_recompute = True
 
     fov_map = initialize_fov(game_map)
 
-    message_log = MessageLog(MESSAGE_X, MESSAGE_WIDTH, MESSAGE_HEIGHT)
-
     key = tcod.Key()
     mouse = tcod.Mouse()
 
-    game_state = GameState.PLAYER_TURN
     previous_game_state = game_state
 
     targeting_item = None
@@ -98,7 +29,9 @@ def main():
         tcod.sys_check_for_event(tcod.EVENT_KEY_PRESS | tcod.EVENT_MOUSE, key, mouse)
 
         if fov_recompute:
-            recompute_fov(fov_map, player.x, player.y, FOV_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM)
+            recompute_fov(
+                fov_map, player.x, player.y, configs["fov_radius"], configs["fov_light_walls"], configs["fov_algorithm"]
+            )
 
         render_all(
             con,
@@ -109,13 +42,13 @@ def main():
             fov_map,
             fov_recompute,
             message_log,
-            SCREEN_WIDTH,
-            SCREEN_HEIGHT,
-            BAR_WIDTH,
-            PANEL_HEIGHT,
-            PANEL_Y,
+            configs["screen_width"],
+            configs["screen_height"],
+            configs["bar_width"],
+            configs["panel_height"],
+            configs["panel_y"],
             mouse,
-            COLORS,
+            configs["colors"],
             game_state,
         )
 
@@ -201,6 +134,7 @@ def main():
             elif game_state == GameState.TARGETING:
                 player_turn_results.append({"targeting_cancelled": True})
             else:
+                save_game(player, entities, game_map, message_log, game_state)
                 return True
 
         if fullscreen:
@@ -275,3 +209,65 @@ def main():
                         break
             else:
                 game_state = GameState.PLAYER_TURN
+
+
+def main():
+    configs = get_configs()
+
+    tcod.console_set_custom_font("assets/fonts/arial10x10.png", tcod.FONT_TYPE_GREYSCALE | tcod.FONT_LAYOUT_TCOD)
+
+    tcod.console_init_root(configs["screen_width"], configs["screen_height"], configs["window_title"], False)
+
+    con = tcod.console_new(configs["screen_width"], configs["screen_height"])
+    panel = tcod.console_new(configs["screen_width"], configs["screen_height"])
+
+    player = None
+    entities = []
+    game_map = None
+    message_log = None
+    game_state = None
+
+    show_main_menu = True
+    show_load_error_message = False
+
+    main_menu_background_image = tcod.image_load("assets/images/menu_background.png")
+
+    key = tcod.Key()
+    mouse = tcod.Mouse()
+
+    while not tcod.console_is_window_closed():
+        tcod.sys_check_for_event(tcod.EVENT_KEY_PRESS | tcod.EVENT_MOUSE, key, mouse)
+
+        if show_main_menu:
+            main_menu(con, main_menu_background_image, configs["screen_width"], configs["screen_height"])
+
+            if show_load_error_message:
+                message_box(con, "No save game to load", 50, configs["screen_width"], configs["screen_height"])
+
+            tcod.console_flush()
+
+            action = handle_main_menu(key)
+
+            new_game = action.get("new_game")
+            load_saved_game = action.get("load_game")
+            exit_game = action.get("exit")
+
+            if show_load_error_message and (new_game or load_saved_game or exit_game):
+                show_load_error_message = False
+            elif new_game:
+                player, entities, game_map, message_log, game_state = get_game_variables(configs)
+                show_main_menu = False
+            elif load_saved_game:
+                try:
+                    player, entities, game_map, message_log, game_state = load_game()
+                    show_main_menu = False
+                except FileNotFoundError:
+                    show_load_error_message = True
+            elif exit_game:
+                break
+
+        else:
+            tcod.console_clear(con)
+            play_game(player, entities, game_map, message_log, game_state, con, panel, configs)
+
+            show_main_menu = True
