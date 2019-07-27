@@ -105,7 +105,7 @@ def render_all(
         else:
             title = "Press the key next to an item to drop it, or Esc to cancel.\n"
 
-        inventory_menu(con, title, player.inventory, 50, screen_width, screen_height)
+        inventory_menu(con, title, player, 50, screen_width, screen_height)
     elif game_state == GameState.LEVEL_UP:
         level_up_menu(con, "Level up! Choose a stat to raise:", player, 40, screen_width, screen_height)
     elif game_state == GameState.CHARACTER_SCREEN:
