@@ -11,7 +11,7 @@ from ..render_functions import RenderOrder
 
 
 def get_game_variables(configs):
-    fighter_component = Fighter(hp=30, defense=2, power=5)
+    fighter_component = Fighter(hp=100, defense=1, power=4)
     inventory_component = Inventory(26)
     level_component = Level()
     player = Entity(
@@ -37,8 +37,6 @@ def get_game_variables(configs):
         configs["map_height"],
         player,
         entities,
-        configs["max_monsters_per_room"],
-        configs["max_items_per_room"],
     )
 
     message_log = MessageLog(configs["message_x"], configs["message_width"], configs["message_height"])
