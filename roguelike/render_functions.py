@@ -1,15 +1,16 @@
-from enum import Enum
+from enum import Enum, auto
 
 import tcod
 
 from .game_states import GameState
-from .menus import inventory_menu
+from .menus import character_screen, inventory_menu, level_up_menu
 
 
 class RenderOrder(Enum):
-    CORPSE = 1
-    ITEM = 2
-    ACTOR = 3
+    STAIRS = auto()
+    CORPSE = auto()
+    ITEM = auto()
+    ACTOR = auto()
 
 
 def get_names_under_mouse(mouse, entities, fov_map):
@@ -77,7 +78,7 @@ def render_all(
 
     entities_in_render_order = sorted(entities, key=lambda x: x.render_order.value)
     for entity in entities_in_render_order:
-        draw_entity(con, entity, fov_map)
+        draw_entity(con, entity, fov_map, game_map)
 
     tcod.console_blit(con, 0, 0, screen_width, screen_height, 0, 0, 0)
 
@@ -91,6 +92,7 @@ def render_all(
         y += 1
 
     render_bar(panel, 1, 1, bar_width, "HP", player.fighter.hp, player.fighter.max_hp, tcod.light_red, tcod.darker_red)
+    tcod.console_print_ex(panel, 1, 3, tcod.BKGND_NONE, tcod.LEFT, f"Dungeon level: {game_map.dungeon_level}")
 
     tcod.console_set_default_foreground(panel, tcod.light_gray)
     tcod.console_print_ex(panel, 1, 0, tcod.BKGND_NONE, tcod.LEFT, get_names_under_mouse(mouse, entities, fov_map))
@@ -104,6 +106,10 @@ def render_all(
             title = "Press the key next to an item to drop it, or Esc to cancel.\n"
 
         inventory_menu(con, title, player.inventory, 50, screen_width, screen_height)
+    elif game_state == GameState.LEVEL_UP:
+        level_up_menu(con, "Level up! Choose a stat to raise:", player, 40, screen_width, screen_height)
+    elif game_state == GameState.CHARACTER_SCREEN:
+        character_screen(player, 30, 10, screen_width, screen_height)
 
 
 def clear_all(con, entities):
@@ -111,8 +117,10 @@ def clear_all(con, entities):
         clear_entity(con, entity)
 
 
-def draw_entity(con, entity, fov_map):
-    if not tcod.map_is_in_fov(fov_map, entity.x, entity.y):
+def draw_entity(con, entity, fov_map, game_map):
+    if not tcod.map_is_in_fov(fov_map, entity.x, entity.y) and (
+        not entity.stairs or not game_map.tiles[entity.x][entity.y].explored
+    ):
         return
 
     tcod.console_set_default_foreground(con, entity.color)

@@ -5,6 +5,7 @@ import tcod
 from ..components.ai import BasicMonster
 from ..components.fighter import Fighter
 from ..components.item import Item
+from ..components.stairs import Stairs
 from ..entity import Entity
 from ..game_messages import Message
 from ..item_functions import cast_confuse, cast_fireball, cast_lightning, heal
@@ -14,10 +15,11 @@ from .tile import Tile
 
 
 class GameMap:
-    def __init__(self, width, height):
+    def __init__(self, width, height, dungeon_level=1):
         self.width = width
         self.height = height
         self.tiles = self.initialize_tiles()
+        self.dungeon_level = dungeon_level
 
     def initialize_tiles(self):
         tiles = [[Tile(True) for y in range(self.height)] for x in range(self.width)]
@@ -38,6 +40,9 @@ class GameMap:
         rooms = []
         num_rooms = 0
 
+        center_of_last_room_x = None
+        center_of_last_room_y = None
+
         for r in range(max_rooms):
             w = randint(room_min_size, room_max_size)
             h = randint(room_min_size, room_max_size)
@@ -53,6 +58,9 @@ class GameMap:
                 self.create_room(new_room)
 
                 (new_x, new_y) = new_room.center()
+                center_of_last_room_x = new_x
+                center_of_last_room_y = new_y
+
                 if num_rooms == 0:
                     player.x = new_x
                     player.y = new_y
@@ -69,6 +77,18 @@ class GameMap:
 
                 rooms.append(new_room)
                 num_rooms += 1
+
+        stairs_component = Stairs(self.dungeon_level + 1)
+        down_stairs = Entity(
+            center_of_last_room_x,
+            center_of_last_room_y,
+            ">",
+            tcod.white,
+            "Stairs",
+            render_order=RenderOrder.STAIRS,
+            stairs=stairs_component,
+        )
+        entities.append(down_stairs)
 
     def create_room(self, room):
         for x in range(room.x1 + 1, room.x2):
@@ -96,7 +116,7 @@ class GameMap:
 
             if not any([e for e in entities if e.x == x and e.y == y]):
                 if randint(0, 100) < 80:
-                    fighter_component = Fighter(hp=10, defense=0, power=3)
+                    fighter_component = Fighter(hp=10, defense=0, power=3, xp=35)
                     ai_component = BasicMonster()
 
                     monster = Entity(
@@ -111,7 +131,7 @@ class GameMap:
                         ai=ai_component,
                     )
                 else:
-                    fighter_component = Fighter(hp=16, defense=1, power=4)
+                    fighter_component = Fighter(hp=16, defense=1, power=4, xp=100)
                     ai_component = BasicMonster()
 
                     monster = Entity(
@@ -181,3 +201,26 @@ class GameMap:
         if self.tiles[x][y].blocked:
             return True
         return False
+
+    def next_floor(self, player, message_log, configs):
+        self.dungeon_level += 1
+        entities = [player]
+
+        self.tiles = self.initialize_tiles()
+        self.make_map(
+            configs["max_rooms"],
+            configs["room_min_size"],
+            configs["room_max_size"],
+            configs["map_width"],
+            configs["map_height"],
+            player,
+            entities,
+            configs["max_monsters_per_room"],
+            configs["max_items_per_room"],
+        )
+
+        player.fighter.heal(player.fighter.max_hp // 2)
+
+        message_log.add_message(Message("You take a moment to rest, and recover your strength.", tcod.light_violet))
+
+        return entities
